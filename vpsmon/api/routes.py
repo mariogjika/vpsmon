@@ -5,11 +5,12 @@ import time
 
 from aiohttp import web
 
-from .. import (agents, alerts, annotations, audit, auth, branding, config,
-                 databases, docker_updates, forecast, incidents, intel,
-                 log_patterns, notifications, prometheus, push, reports,
-                 runbooks, security_hardening, servers, terminal, tokens,
-                 totp, uptime, webanalytics)
+from .. import (agents, alert_rules, alerts, annotations, audit, auth, branding,
+                 comparison, config, cron_monitor, databases, docker_updates,
+                 forecast, incidents, intel, log_patterns, notifications,
+                 prometheus, push, reports, runbooks, security_hardening,
+                 servers, terminal, tokens, totp, uptime, webanalytics,
+                 windows_checks)
 from ..collectors import (
     system, docker_mon, processes, network, security, logs,
     temperature, smart, tls, services, crons, fail2ban, firewall,
@@ -215,6 +216,26 @@ def setup_routes(app: web.Application):
     # Log pattern detection
     app.router.add_get("/api/log-patterns", handle_log_patterns)
     app.router.add_post("/api/log-patterns/scan", handle_log_patterns_scan)
+
+    # Server comparison
+    app.router.add_get("/api/compare/overview", handle_compare_overview)
+    app.router.add_get("/api/compare/metrics", handle_compare_metrics)
+
+    # Cron monitoring
+    app.router.add_get("/api/cron-monitor", handle_cron_list)
+    app.router.add_post("/api/cron-monitor", handle_cron_register)
+    app.router.add_delete("/api/cron-monitor/{id}", handle_cron_delete)
+    app.router.add_post("/api/cron-monitor/detect", handle_cron_detect)
+
+    # Alert routing rules
+    app.router.add_get("/api/alert-rules", handle_alert_rules_list)
+    app.router.add_post("/api/alert-rules", handle_alert_rule_create)
+    app.router.add_put("/api/alert-rules/{id}", handle_alert_rule_update)
+    app.router.add_delete("/api/alert-rules/{id}", handle_alert_rule_delete)
+
+    # Windows checks
+    app.router.add_get("/api/windows/{server_id}", handle_windows_latest)
+    app.router.add_post("/api/windows/{server_id}/probe", handle_windows_probe)
 
 
 # --- Auth ---
@@ -1534,3 +1555,100 @@ async def handle_log_patterns(request: web.Request):
 async def handle_log_patterns_scan(request: web.Request):
     results = await log_patterns.scan_patterns(hours=1)
     return web.json_response({"detected": results})
+
+
+# --- Server comparison ---
+
+async def handle_compare_overview(request: web.Request):
+    a = request.query.get("a", "")
+    b = request.query.get("b", "")
+    if not a or not b:
+        return web.json_response({"error": "a and b query params required"}, status=400)
+    return web.json_response(await comparison.compare_overview(a, b))
+
+
+async def handle_compare_metrics(request: web.Request):
+    a = request.query.get("a", "")
+    b = request.query.get("b", "")
+    metric = request.query.get("metric", "cpu_percent")
+    hours = int(request.query.get("hours", 1))
+    return web.json_response(await comparison.compare_metrics(a, b, metric, hours))
+
+
+# --- Cron monitoring ---
+
+async def handle_cron_list(request: web.Request):
+    sid = request.query.get("server_id")
+    server_id = int(sid) if sid else None
+    return web.json_response({"crons": await cron_monitor.list_crons(server_id)})
+
+
+async def handle_cron_register(request: web.Request):
+    data = await request.json()
+    cid = await cron_monitor.register_cron(
+        server_id=data.get("server_id"),
+        name=data.get("name", ""),
+        schedule_expr=data.get("schedule", ""),
+        expected_interval=int(data.get("expected_interval", 3600)),
+        source=data.get("source", "manual"),
+    )
+    return web.json_response({"ok": True, "id": cid})
+
+
+async def handle_cron_delete(request: web.Request):
+    cid = int(request.match_info["id"])
+    await cron_monitor.delete_cron(cid)
+    return web.json_response({"ok": True})
+
+
+async def handle_cron_detect(request: web.Request):
+    data = await request.json()
+    sid = data.get("server_id")
+    server_id = int(sid) if sid else None
+    crons = await cron_monitor.auto_detect(server_id)
+    return web.json_response({"detected": len(crons), "crons": crons})
+
+
+# --- Alert routing rules ---
+
+async def handle_alert_rules_list(request: web.Request):
+    return web.json_response({"rules": await alert_rules.list_rules()})
+
+
+async def handle_alert_rule_create(request: web.Request):
+    data = await request.json()
+    user = request.get("user", {}).get("username", "?")
+    rid = await alert_rules.create_rule(
+        name=data.get("name", ""),
+        condition_type=data.get("condition_type", "pattern"),
+        condition_value=data.get("condition_value", "*"),
+        channel_ids=data.get("channel_ids", []),
+        created_by=user,
+    )
+    return web.json_response({"ok": True, "id": rid})
+
+
+async def handle_alert_rule_update(request: web.Request):
+    rid = int(request.match_info["id"])
+    data = await request.json()
+    await alert_rules.update_rule(rid, data)
+    return web.json_response({"ok": True})
+
+
+async def handle_alert_rule_delete(request: web.Request):
+    rid = int(request.match_info["id"])
+    await alert_rules.delete_rule(rid)
+    return web.json_response({"ok": True})
+
+
+# --- Windows checks ---
+
+async def handle_windows_latest(request: web.Request):
+    sid = int(request.match_info["server_id"])
+    check_type = request.query.get("type")
+    return web.json_response({"checks": await windows_checks.get_latest(sid, check_type)})
+
+
+async def handle_windows_probe(request: web.Request):
+    sid = int(request.match_info["server_id"])
+    return web.json_response(await windows_checks.probe_windows(sid))
