@@ -1,0 +1,1060 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>VPSMon</title>
+    <link rel="stylesheet" href="/static/css/style.css">
+    <link rel="stylesheet" href="/static/vendor/xterm/xterm.css">
+    <link rel="manifest" href="/manifest.json">
+    <meta name="theme-color" content="#6366f1">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="VPSMon">
+    <link rel="apple-touch-icon" href="/static/icon.svg">
+    <link rel="icon" href="/static/icon.svg">
+</head>
+<body>
+    <!-- Toast Container -->
+    <div id="toast-container"></div>
+
+    <!-- Login Screen -->
+    <div id="login-screen" class="login-screen hidden">
+        <div class="login-box">
+            <div class="login-logo">
+                <svg width="44" height="44" viewBox="0 0 512 512"><rect width="512" height="512" rx="96" fill="#4f46e5"/><g fill="none" stroke="#fff" stroke-width="32" stroke-linecap="round" stroke-linejoin="round"><path d="M100 320 L200 220 L260 280 L360 180 L432 252"/></g></svg>
+                <h1>VPSMon</h1>
+                <p class="login-subtitle">Server monitoring by <a href="https://solverix.io" target="_blank" style="color:var(--accent);text-decoration:none;font-weight:600">Solverix</a></p>
+            </div>
+            <form id="login-form">
+                <div class="input-group">
+                    <label for="login-user">Username</label>
+                    <input type="text" id="login-user" class="input-text" placeholder="admin" autocomplete="username" required>
+                </div>
+                <div class="input-group">
+                    <label for="login-pass">Password</label>
+                    <input type="password" id="login-pass" class="input-text" placeholder="Password" autocomplete="current-password" required>
+                </div>
+                <button type="submit" id="login-btn" class="btn-primary" style="width:100%;padding:12px;font-size:14px;margin-top:4px">
+                    <span class="btn-text">Sign In</span>
+                    <span class="btn-spinner hidden"></span>
+                </button>
+                <p id="login-error" class="error hidden"></p>
+            </form>
+            <div style="text-align:center;margin-top:20px;padding-top:16px;border-top:1px solid var(--border)">
+                <p style="font-size:11px;color:var(--text-muted)">Open-source server monitoring</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Main App -->
+    <div id="app" class="hidden">
+        <!-- Alert Banner -->
+        <div id="alert-banner" class="alert-banner hidden">
+            <span id="alert-banner-icon">&#9888;</span>
+            <span id="alert-banner-text"></span>
+            <button id="alert-banner-close" class="alert-banner-close">&times;</button>
+        </div>
+
+        <!-- Mobile Menu Toggle -->
+        <button id="mobile-menu-btn" class="mobile-menu-btn hidden-desktop">&#9776;</button>
+
+        <!-- Sidebar -->
+        <nav id="sidebar">
+            <div class="sidebar-logo">
+                <svg width="24" height="24" viewBox="0 0 512 512"><rect width="512" height="512" rx="96" fill="#4f46e5"/><g fill="none" stroke="#fff" stroke-width="32" stroke-linecap="round" stroke-linejoin="round"><path d="M100 320 L200 220 L260 280 L360 180 L432 252"/></g></svg>
+                <h2>VPSMon</h2>
+                <span>v4.1</span>
+            </div>
+            <div class="sidebar-nav">
+                <!-- Dashboard (standalone) -->
+                <div class="nav-section">
+                    <a href="#overview" class="nav-link active" data-page="overview">
+                        <span class="nav-icon">&#9632;</span><span class="nav-text">Dashboard</span></a>
+                </div>
+
+                <!-- Monitor -->
+                <div class="nav-section">
+                    <span class="nav-section-label">Monitor</span>
+                    <a href="#system" class="nav-link" data-page="system">
+                        <span class="nav-icon">&#9881;</span><span class="nav-text">System</span></a>
+                    <a href="#docker" class="nav-link" data-page="docker">
+                        <span class="nav-icon">&#9654;</span><span class="nav-text">Docker</span></a>
+                    <a href="#processes" class="nav-link" data-page="processes">
+                        <span class="nav-icon">&#9776;</span><span class="nav-text">Processes</span></a>
+                    <a href="#network" class="nav-link" data-page="network">
+                        <span class="nav-icon">&#8644;</span><span class="nav-text">Network</span></a>
+                </div>
+
+                <!-- Monitor (continued) -->
+                <div class="nav-section">
+                    <span class="nav-section-label">Data</span>
+                    <a href="#databases" class="nav-link" data-page="databases">
+                        <span class="nav-icon">&#9707;</span><span class="nav-text">Databases</span></a>
+                    <a href="#web-analytics" class="nav-link" data-page="web-analytics">
+                        <span class="nav-icon">&#9733;</span><span class="nav-text">Web Traffic</span></a>
+                    <a href="#ssl-certs" class="nav-link" data-page="ssl-certs">
+                        <span class="nav-icon">&#128274;</span><span class="nav-text">SSL Certs</span></a>
+                </div>
+
+                <!-- Observe -->
+                <div class="nav-section">
+                    <span class="nav-section-label">Observe</span>
+                    <a href="#logs" class="nav-link" data-page="logs">
+                        <span class="nav-icon">&#9998;</span><span class="nav-text">Logs</span></a>
+                    <a href="#security" class="nav-link" data-page="security">
+                        <span class="nav-icon">&#9888;</span><span class="nav-text">Security</span></a>
+                    <a href="#alerts" class="nav-link" data-page="alerts">
+                        <span class="nav-icon">&#128276;</span><span class="nav-text">Alerts</span>
+                        <span id="alert-badge" class="nav-badge hidden">0</span></a>
+                    <a href="#incidents" class="nav-link" data-page="incidents">
+                        <span class="nav-icon">&#9632;</span><span class="nav-text">Incidents</span>
+                        <span id="incidents-badge" class="nav-badge hidden">0</span></a>
+                </div>
+
+                <!-- Fleet -->
+                <div class="nav-section">
+                    <span class="nav-section-label">Fleet</span>
+                    <a href="#servers" class="nav-link" data-page="servers">
+                        <span class="nav-icon">&#9679;</span><span class="nav-text">Servers</span></a>
+                    <a href="#uptime" class="nav-link" data-page="uptime">
+                        <span class="nav-icon">&#9679;</span><span class="nav-text">Uptime</span></a>
+                    <a href="#updates" class="nav-link" data-page="updates">
+                        <span class="nav-icon">&#8593;</span><span class="nav-text">Updates</span>
+                        <span id="updates-badge" class="nav-badge hidden">0</span></a>
+                    <a href="#backups" class="nav-link" data-page="backups">
+                        <span class="nav-icon">&#128190;</span><span class="nav-text">Backups</span></a>
+                </div>
+
+                <!-- Operate -->
+                <div class="nav-section">
+                    <span class="nav-section-label">Operate</span>
+                    <a href="#terminal" class="nav-link" data-page="terminal">
+                        <span class="nav-icon">&#9002;</span><span class="nav-text">Terminal</span></a>
+                    <a href="#files" class="nav-link" data-page="files">
+                        <span class="nav-icon">&#128193;</span><span class="nav-text">Files</span></a>
+                    <a href="#runbooks" class="nav-link" data-page="runbooks">
+                        <span class="nav-icon">&#9654;</span><span class="nav-text">Runbooks</span></a>
+                </div>
+
+                <!-- Configure -->
+                <div class="nav-section">
+                    <span class="nav-section-label">Configure</span>
+                    <a href="#notifications" class="nav-link" data-page="notifications">
+                        <span class="nav-icon">&#9993;</span><span class="nav-text">Notifications</span></a>
+                    <a href="#security-audit" class="nav-link" data-page="security-audit">
+                        <span class="nav-icon">&#128737;</span><span class="nav-text">Security</span></a>
+                    <a href="#settings" class="nav-link" data-page="settings">
+                        <span class="nav-icon">&#9881;</span><span class="nav-text">Settings</span></a>
+                </div>
+            </div>
+            <div class="sidebar-footer">
+                <div class="sidebar-user">
+                    <div class="user-avatar" id="user-avatar">A</div>
+                    <span id="sidebar-user">admin</span>
+                </div>
+                <button id="theme-toggle-btn" class="btn-icon" title="Toggle dark/light" onclick="VPSMon.toggleTheme && VPSMon.toggleTheme()">&#9790;</button>
+                <button id="logout-btn" class="btn-icon" title="Logout">&#10140;</button>
+            </div>
+        </nav>
+
+        <!-- Content -->
+        <main id="content">
+            <!-- System Info Bar -->
+            <div id="system-info-bar" class="system-info-bar">
+                <span id="sysinfo-hostname" class="sysinfo-item"></span>
+                <span id="sysinfo-os" class="sysinfo-item"></span>
+                <span id="sysinfo-kernel" class="sysinfo-item"></span>
+                <span id="sysinfo-cpu" class="sysinfo-item"></span>
+                <span class="sysinfo-spacer"></span>
+                <span id="sysinfo-time" class="sysinfo-item"></span>
+            </div>
+
+            <!-- Overview Page -->
+            <div id="page-overview" class="page active">
+                <div class="page-header">
+                    <h1>Overview</h1>
+                    <div class="page-actions">
+                        <span id="last-update" class="last-update"></span>
+                        <button class="btn-small" onclick="VPSMonPalette.open()" title="Command palette (Cmd-K)">⌘K</button>
+                    </div>
+                </div>
+                <div class="forecast-widget" id="forecast-widget"></div>
+                <div class="gauges-row">
+                    <div class="gauge-card">
+                        <div class="gauge-label">CPU</div>
+                        <div class="gauge-ring" id="gauge-cpu"><span>0%</span></div>
+                        <div class="gauge-sparkline" id="spark-cpu"></div>
+                    </div>
+                    <div class="gauge-card">
+                        <div class="gauge-label">Memory</div>
+                        <div class="gauge-ring" id="gauge-mem"><span>0%</span></div>
+                        <div class="gauge-sparkline" id="spark-mem"></div>
+                    </div>
+                    <div class="gauge-card">
+                        <div class="gauge-label">Disk</div>
+                        <div class="gauge-ring" id="gauge-disk"><span>0%</span></div>
+                        <div class="gauge-detail" id="disk-detail"></div>
+                    </div>
+                    <div class="gauge-card">
+                        <div class="gauge-label">Swap</div>
+                        <div class="gauge-ring" id="gauge-swap"><span>0%</span></div>
+                        <div class="gauge-detail" id="swap-detail"></div>
+                    </div>
+                </div>
+                <div class="stats-row">
+                    <div class="stat-card clickable" onclick="VPSMon.goPage('system')">
+                        <div class="stat-value" id="stat-load">-</div>
+                        <div class="stat-label">Load Average</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-value" id="stat-uptime">-</div>
+                        <div class="stat-label">Uptime</div>
+                    </div>
+                    <div class="stat-card clickable" onclick="VPSMon.goPage('system')">
+                        <div class="stat-value" id="stat-net-rx">-</div>
+                        <div class="stat-label">Network In</div>
+                    </div>
+                    <div class="stat-card clickable" onclick="VPSMon.goPage('system')">
+                        <div class="stat-value" id="stat-net-tx">-</div>
+                        <div class="stat-label">Network Out</div>
+                    </div>
+                    <div class="stat-card clickable" onclick="VPSMon.goPage('network')">
+                        <div class="stat-value" id="stat-connections">-</div>
+                        <div class="stat-label">TCP Conns</div>
+                    </div>
+                    <div class="stat-card clickable" onclick="VPSMon.goPage('processes')">
+                        <div class="stat-value" id="stat-processes">-</div>
+                        <div class="stat-label">Processes</div>
+                    </div>
+                </div>
+                <div class="grid-2col">
+                    <div class="card">
+                        <div class="card-header">
+                            <h3>CPU History (1h)</h3>
+                            <button class="btn-icon" onclick="VPSMon.exportChart('cpu_percent',3600)" title="Export CSV">&#8681;</button>
+                        </div>
+                        <div class="chart-container" id="overview-cpu-chart"></div>
+                    </div>
+                    <div class="card">
+                        <div class="card-header">
+                            <h3>Memory History (1h)</h3>
+                            <button class="btn-icon" onclick="VPSMon.exportChart('mem_percent',3600)" title="Export CSV">&#8681;</button>
+                        </div>
+                        <div class="chart-container" id="overview-mem-chart"></div>
+                    </div>
+                </div>
+                <div class="grid-2col">
+                    <div class="card">
+                        <div class="card-header"><h3>Docker Containers</h3></div>
+                        <div id="overview-docker"><div class="skeleton-loader"></div></div>
+                    </div>
+                    <div class="card">
+                        <div class="card-header"><h3>Recent Alerts</h3></div>
+                        <div id="overview-alerts"><div class="skeleton-loader"></div></div>
+                    </div>
+                </div>
+                <div class="grid-2col">
+                    <div class="card">
+                        <div class="card-header"><h3>Network I/O (1h)</h3></div>
+                        <div class="chart-container" id="overview-net-chart"></div>
+                    </div>
+                    <div class="card">
+                        <div class="card-header"><h3>Recent Security Events</h3></div>
+                        <div id="overview-security"><div class="skeleton-loader"></div></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- System Page -->
+            <div id="page-system" class="page">
+                <div class="page-header">
+                    <h1>System Metrics</h1>
+                    <div class="page-actions">
+                        <div class="time-range-bar">
+                            <button class="time-btn active" data-range="1800">30m</button>
+                            <button class="time-btn" data-range="3600">1h</button>
+                            <button class="time-btn" data-range="21600">6h</button>
+                            <button class="time-btn" data-range="86400">24h</button>
+                            <button class="time-btn" data-range="604800">7d</button>
+                            <button class="time-btn" data-range="2592000">30d</button>
+                            <button class="time-btn" data-range="7776000">90d</button>
+                        </div>
+                    </div>
+                </div>
+                <div class="card"><div class="card-header"><h3>CPU Usage</h3><button class="btn-icon" title="Export" onclick="VPSMon.exportCurrentMetric('cpu_percent')">&#8681;</button></div><div class="chart-container" id="sys-cpu-chart"></div></div>
+                <div class="card"><div class="card-header"><h3>Load Average</h3></div><div class="chart-container" id="sys-load-chart"></div></div>
+                <div class="grid-2col">
+                    <div class="card"><div class="card-header"><h3>Memory Usage</h3></div><div class="chart-container" id="sys-mem-chart"></div></div>
+                    <div class="card"><div class="card-header"><h3>Swap Usage</h3></div><div class="chart-container" id="sys-swap-chart"></div></div>
+                </div>
+                <div class="grid-2col">
+                    <div class="card"><div class="card-header"><h3>Disk Usage</h3></div><div class="chart-container" id="sys-disk-chart"></div></div>
+                    <div class="card"><div class="card-header"><h3>Disk I/O</h3></div><div class="chart-container" id="sys-diskio-chart"></div></div>
+                </div>
+                <div class="grid-2col">
+                    <div class="card"><div class="card-header"><h3>Network RX</h3></div><div class="chart-container" id="sys-netrx-chart"></div></div>
+                    <div class="card"><div class="card-header"><h3>Network TX</h3></div><div class="chart-container" id="sys-nettx-chart"></div></div>
+                </div>
+                <div class="card">
+                    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+                        <h3 style="margin:0">Custom Metrics</h3>
+                        <button class="btn-primary" style="font-size:11px;padding:4px 10px" onclick="VPSMon.showAddCustomMetric()">+ Add</button>
+                    </div>
+                    <p class="text-muted" style="font-size:12px;margin-bottom:10px">User-defined shell probes. The last stdout line is recorded as a metric value.</p>
+                    <div id="custom-metrics-list"><div class="empty-state">No custom metrics yet.</div></div>
+                </div>
+            </div>
+
+            <!-- Docker Page -->
+            <div id="page-docker" class="page">
+                <div class="page-header">
+                    <h1>Docker Containers</h1>
+                    <div class="page-actions">
+                        <div class="toggle-group">
+                            <button class="toggle-btn active" data-view="list" id="docker-view-list">List</button>
+                            <button class="toggle-btn" data-view="compose" id="docker-view-compose">Compose</button>
+                        </div>
+                    </div>
+                </div>
+                <div id="docker-unavailable" class="info-banner hidden">Docker is not available on this server.</div>
+                <div id="docker-container-list"></div>
+                <div id="docker-logs-panel" class="hidden">
+                    <div class="card">
+                        <div class="card-header">
+                            <h3>Container Logs: <span id="docker-logs-name"></span></h3>
+                            <div>
+                                <input type="text" id="docker-logs-filter" placeholder="Filter logs..." class="input-text-sm">
+                                <button id="docker-logs-close" class="btn-small">Close</button>
+                            </div>
+                        </div>
+                        <pre id="docker-logs-content" class="log-output"></pre>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Processes Page -->
+            <div id="page-processes" class="page">
+                <div class="page-header">
+                    <h1>Processes</h1>
+                    <div class="page-actions">
+                        <input type="text" id="process-search" placeholder="Search processes..." class="input-text-sm">
+                        <div class="tab-bar">
+                            <button class="tab-btn active" data-tab="by_cpu">By CPU</button>
+                            <button class="tab-btn" data-tab="by_mem">By Memory</button>
+                        </div>
+                    </div>
+                </div>
+                <div class="card">
+                    <div class="process-total">Total: <span id="process-count">0</span></div>
+                    <div class="table-scroll">
+                        <table class="data-table" id="process-table">
+                            <thead>
+                                <tr>
+                                    <th class="sortable" data-sort="pid">PID</th>
+                                    <th class="sortable" data-sort="name">Name</th>
+                                    <th>User</th>
+                                    <th class="sortable" data-sort="cpu">CPU %</th>
+                                    <th class="sortable" data-sort="mem_pct">Mem %</th>
+                                    <th>RSS</th>
+                                    <th>Threads</th>
+                                    <th>Status</th>
+                                </tr>
+                            </thead>
+                            <tbody id="process-tbody"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Logs Page -->
+            <div id="page-logs" class="page">
+                <div class="page-header">
+                    <h1>System Logs</h1>
+                    <div class="page-actions">
+                        <span id="log-count" class="text-muted"></span>
+                    </div>
+                </div>
+                <div class="log-controls">
+                    <input type="text" id="log-filter" placeholder="Filter by unit or message..." class="input-text">
+                    <select id="log-priority" class="input-select">
+                        <option value="">All priorities</option>
+                        <option value="0">Emergency</option>
+                        <option value="1">Alert</option>
+                        <option value="2">Critical</option>
+                        <option value="3">Error</option>
+                        <option value="4">Warning</option>
+                        <option value="5">Notice</option>
+                        <option value="6">Info</option>
+                        <option value="7">Debug</option>
+                    </select>
+                    <label class="checkbox-label">
+                        <input type="checkbox" id="log-autoscroll" checked> Auto-scroll
+                    </label>
+                    <button class="btn-small" id="log-clear-btn">Clear</button>
+                </div>
+                <div class="card no-padding">
+                    <div id="log-output" class="log-output"></div>
+                </div>
+            </div>
+
+            <!-- Security Page -->
+            <div id="page-security" class="page">
+                <div class="page-header">
+                    <h1>Security Events</h1>
+                    <div class="page-actions">
+                        <div class="time-range-bar" id="security-time-range">
+                            <button class="time-btn active" data-range="3600">1h</button>
+                            <button class="time-btn" data-range="86400">24h</button>
+                            <button class="time-btn" data-range="604800">7d</button>
+                            <button class="time-btn" data-range="2592000">30d</button>
+                        </div>
+                    </div>
+                </div>
+                <div class="stats-row" id="security-stats"></div>
+                <div class="card">
+                    <div class="card-header"><h3>Event Timeline</h3></div>
+                    <div class="table-scroll">
+                        <table class="data-table">
+                            <thead>
+                                <tr>
+                                    <th>Time</th>
+                                    <th>Type</th>
+                                    <th>Severity</th>
+                                    <th>User</th>
+                                    <th>Source IP</th>
+                                    <th>Message</th>
+                                </tr>
+                            </thead>
+                            <tbody id="security-tbody"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Network Page -->
+            <div id="page-network" class="page">
+                <div class="page-header">
+                    <h1>Network</h1>
+                    <div class="page-actions">
+                        <input type="text" id="network-search" placeholder="Search connections..." class="input-text-sm">
+                    </div>
+                </div>
+                <div class="grid-2col">
+                    <div class="card">
+                        <div class="card-header"><h3>Listening Ports</h3></div>
+                        <div class="table-scroll">
+                            <table class="data-table">
+                                <thead><tr><th>Port</th><th>Process</th><th>PID</th><th>Type</th></tr></thead>
+                                <tbody id="listening-tbody"></tbody>
+                            </table>
+                        </div>
+                    </div>
+                    <div class="stat-card large">
+                        <div class="stat-value" id="net-established">0</div>
+                        <div class="stat-label">Established Connections</div>
+                    </div>
+                </div>
+                <div class="card">
+                    <div class="card-header"><h3>Active Connections</h3><span id="conn-count" class="text-muted"></span></div>
+                    <div class="table-scroll max-h-400">
+                        <table class="data-table">
+                            <thead><tr><th>Local</th><th>Remote</th><th>Status</th><th>Process</th><th>PID</th></tr></thead>
+                            <tbody id="connections-tbody"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Alerts Page -->
+            <div id="page-alerts" class="page">
+                <div class="page-header">
+                    <h1>Alerts</h1>
+                    <div class="page-actions">
+                        <button class="btn-small" id="ack-all-btn">Acknowledge All</button>
+                    </div>
+                </div>
+                <div class="stats-row" id="alert-stats"></div>
+                <div class="card">
+                    <div class="card-header"><h3>Active Alerts</h3></div>
+                    <div id="active-alerts-list"><p class="text-muted pad-16">No active alerts</p></div>
+                </div>
+                <div class="card">
+                    <div class="card-header"><h3>Alert History (24h)</h3></div>
+                    <div class="table-scroll">
+                        <table class="data-table">
+                            <thead><tr><th>Time</th><th>Type</th><th>Severity</th><th>Metric</th><th>Value</th><th>Threshold</th><th>Message</th><th>Status</th></tr></thead>
+                            <tbody id="alert-history-tbody"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Servers Page -->
+            <div id="page-servers" class="page">
+                <div class="page-header">
+                    <h1>Servers</h1>
+                    <div class="page-actions">
+                        <button class="btn-primary" onclick="VPSMon.showAddServer()">+ Add Server</button>
+                    </div>
+                </div>
+                <div class="stats-row" id="servers-overview-stats"></div>
+                <div class="card">
+                    <div class="card-header"><h3>Fleet</h3></div>
+                    <div id="servers-list"><p class="text-muted pad-16">No servers configured. Click "Add Server" to start monitoring your fleet.</p></div>
+                </div>
+                <div class="card">
+                    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+                        <h3 style="margin:0">SSH Key Inventory</h3>
+                        <button class="btn-small" onclick="VPSMon.scanSshKeys()">Scan Keys</button>
+                    </div>
+                    <div id="ssh-keys-list"><div class="empty-state">Click "Scan Keys" to audit authorized_keys across your fleet.</div></div>
+                </div>
+            </div>
+
+            <!-- Uptime Checks Page -->
+            <div id="page-uptime" class="page">
+                <div class="page-header">
+                    <h1>Uptime Monitoring</h1>
+                    <div class="page-actions">
+                        <button class="btn-primary" onclick="VPSMon.showAddUptime()">+ Add Check</button>
+                        <a class="btn-secondary" href="/status" target="_blank">Public Status Page ↗</a>
+                    </div>
+                </div>
+                <div class="grid-4col" id="uptime-summary"></div>
+                <div class="card">
+                    <h3>HTTP Checks</h3>
+                    <div id="uptime-list"><div class="skeleton-loader"></div></div>
+                </div>
+            </div>
+
+            <!-- Incidents Page -->
+            <div id="page-incidents" class="page">
+                <div class="page-header"><h1>Incident Timeline</h1></div>
+                <div class="grid-4col" id="incidents-summary"></div>
+                <div class="grid-2col">
+                    <div class="card">
+                        <h3>Open Incidents</h3>
+                        <div id="incidents-open-list"><div class="empty-state">No open incidents. ✓</div></div>
+                    </div>
+                    <div class="card">
+                        <h3>Recent (last 30 days)</h3>
+                        <div id="incidents-recent-list"><div class="skeleton-loader"></div></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Terminal Page -->
+            <div id="page-terminal" class="page">
+                <div class="page-header">
+                    <h1>Terminal</h1>
+                    <div class="page-actions">
+                        <select id="terminal-server-select" class="input-select" style="width:220px;display:inline-block"></select>
+                        <button class="btn-primary" onclick="VPSMon.connectTerminal()">Connect</button>
+                        <button class="btn-secondary" onclick="VPSMon.disconnectTerminal()">Disconnect</button>
+                    </div>
+                </div>
+                <div class="terminal-container" id="terminal-wrap">
+                    <div class="terminal-header">
+                        <span id="terminal-status">Select a server and click Connect</span>
+                        <span id="terminal-server-label"></span>
+                    </div>
+                    <div class="terminal-body" id="terminal-body"></div>
+                </div>
+            </div>
+
+            <!-- File Browser Page -->
+            <div id="page-files" class="page">
+                <div class="page-header">
+                    <h1>File Browser</h1>
+                    <div class="page-actions">
+                        <select id="files-server-select" class="input-select" style="width:220px;display:inline-block"></select>
+                        <button class="btn-secondary" onclick="VPSMon.browsePath('/')">Go to /</button>
+                    </div>
+                </div>
+                <div class="card">
+                    <div class="filebrowser-breadcrumb" id="file-breadcrumb"></div>
+                    <div id="file-list"><div class="empty-state">Select a server, then browse.</div></div>
+                </div>
+                <div class="card hidden" id="file-viewer-card">
+                    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+                        <h3 id="file-viewer-name"></h3>
+                        <button class="btn-small" onclick="document.getElementById('file-viewer-card').classList.add('hidden')">Close</button>
+                    </div>
+                    <pre id="file-viewer-content" class="run-output" style="max-height:500px"></pre>
+                </div>
+            </div>
+
+            <!-- Runbooks Page -->
+            <div id="page-runbooks" class="page">
+                <div class="page-header">
+                    <h1>Runbooks</h1>
+                    <div class="page-actions">
+                        <button class="btn-primary" onclick="VPSMon.showAddRunbook()">+ New Runbook</button>
+                    </div>
+                </div>
+                <div class="grid-2col">
+                    <div class="card" style="grid-column:span 2">
+                        <h3>Library</h3>
+                        <div id="runbooks-list"><div class="skeleton-loader"></div></div>
+                    </div>
+                </div>
+                <div class="card">
+                    <h3>Recent Runs</h3>
+                    <div id="runbook-runs"><div class="skeleton-loader"></div></div>
+                </div>
+            </div>
+
+            <!-- Updates Page -->
+            <div id="page-updates" class="page">
+                <div class="page-header">
+                    <h1>Package Updates</h1>
+                    <div class="page-actions">
+                        <button class="btn-secondary" onclick="VPSMon.scanUpdates()">Scan Now</button>
+                    </div>
+                </div>
+                <div class="card">
+                    <h3>Pending Updates Per Server</h3>
+                    <div id="updates-list"><div class="skeleton-loader"></div></div>
+                </div>
+            </div>
+
+            <!-- Backups Page -->
+            <div id="page-backups" class="page">
+                <div class="page-header">
+                    <h1>Backup Inventory</h1>
+                    <div class="page-actions">
+                        <button class="btn-secondary" onclick="VPSMon.scanBackups()">Scan Now</button>
+                    </div>
+                </div>
+                <div class="card">
+                    <h3>Detected Backups</h3>
+                    <div id="backups-list"><div class="skeleton-loader"></div></div>
+                </div>
+            </div>
+
+            <!-- SSH Keys Page -->
+            <!-- Databases Page -->
+            <div id="page-databases" class="page">
+                <div class="page-header">
+                    <h1>Databases</h1>
+                    <div class="page-actions">
+                        <button class="btn-secondary" onclick="VPSMon.probeAllDbs()">Probe Now</button>
+                    </div>
+                </div>
+                <div id="databases-content"><div class="empty-state">Scanning for databases across fleet...</div></div>
+            </div>
+
+            <!-- Web Traffic (Nginx analytics) Page -->
+            <div id="page-web-analytics" class="page">
+                <div class="page-header">
+                    <h1>Web Traffic</h1>
+                    <div class="page-actions">
+                        <button class="btn-secondary" onclick="VPSMon.scanWebAnalytics()">Scan Now</button>
+                    </div>
+                </div>
+                <div id="web-analytics-content"><div class="empty-state">Click "Scan Now" to parse nginx/apache access logs.</div></div>
+            </div>
+
+            <!-- SSL Certs Page -->
+            <div id="page-ssl-certs" class="page">
+                <div class="page-header"><h1>SSL Certificates</h1></div>
+                <div class="card">
+                    <h3>Certificate Inventory</h3>
+                    <div id="ssl-certs-list"><div class="skeleton-loader"></div></div>
+                </div>
+            </div>
+
+            <!-- Notifications Page -->
+            <div id="page-notifications" class="page">
+                <div class="page-header">
+                    <h1>Notification Channels</h1>
+                    <div class="page-actions">
+                        <button class="btn-primary" onclick="VPSMon.showAddNotif()">+ Add Channel</button>
+                    </div>
+                </div>
+                <div class="card">
+                    <div id="notifications-list"><p class="text-muted pad-16">No channels configured. Add a Slack/Discord/Telegram/Email/Webhook channel to receive alerts.</p></div>
+                </div>
+                <div class="card">
+                    <h3>Supported Channels</h3>
+                    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px;font-size:13px">
+                        <div><strong>Slack</strong><div class="text-muted">Incoming webhook URL</div></div>
+                        <div><strong>Discord</strong><div class="text-muted">Channel webhook URL</div></div>
+                        <div><strong>Telegram</strong><div class="text-muted">Bot token + chat ID</div></div>
+                        <div><strong>Email</strong><div class="text-muted">SMTP server + credentials</div></div>
+                        <div><strong>Webhook</strong><div class="text-muted">Any HTTP endpoint, JSON POST</div></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Security Audit Page -->
+            <div id="page-security-audit" class="page">
+                <div class="page-header">
+                    <h1>Security Audit</h1>
+                    <div class="page-actions">
+                        <button class="btn-secondary" onclick="VPSMon.refreshSecurityAudit()">Refresh</button>
+                    </div>
+                </div>
+                <div id="security-score-card" class="card" style="text-align:center;padding:30px">
+                    <div id="security-grade" style="font-size:64px;font-weight:800;line-height:1">—</div>
+                    <div id="security-score" style="font-size:16px;color:var(--text-muted);margin-top:8px">Loading...</div>
+                </div>
+                <div class="card">
+                    <h3>Issues Found</h3>
+                    <div id="security-issues-list"><div class="skeleton-loader"></div></div>
+                </div>
+            </div>
+
+            <!-- Settings Page -->
+            <div id="page-settings" class="page">
+                <div class="page-header"><h1>Settings</h1></div>
+                <div class="grid-2col">
+                    <div class="card">
+                        <h3>Change Password</h3>
+                        <form id="change-password-form" class="settings-form">
+                            <div class="input-group">
+                                <label>New Password</label>
+                                <input type="password" id="new-password" placeholder="Min 6 characters" minlength="6" required>
+                            </div>
+                            <div class="input-group">
+                                <label>Confirm Password</label>
+                                <input type="password" id="confirm-password" placeholder="Confirm" required>
+                            </div>
+                            <button type="submit" class="btn-primary">Update Password</button>
+                        </form>
+                    </div>
+                    <div class="card">
+                        <h3>Display Settings</h3>
+                        <div class="settings-form">
+                            <div class="setting-row">
+                                <span>Theme</span>
+                                <div class="toggle-group">
+                                    <button class="toggle-btn active" id="theme-dark">Dark</button>
+                                    <button class="toggle-btn" id="theme-light">Light</button>
+                                </div>
+                            </div>
+                            <div class="setting-row">
+                                <span>Refresh Rate</span>
+                                <select id="refresh-rate" class="input-select">
+                                    <option value="2">2 seconds</option>
+                                    <option value="5" selected>5 seconds</option>
+                                    <option value="10">10 seconds</option>
+                                    <option value="30">30 seconds</option>
+                                </select>
+                            </div>
+                            <div class="setting-row">
+                                <span>Show System Bar</span>
+                                <input type="checkbox" id="show-sysbar" checked>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="card">
+                    <h3>System Information</h3>
+                    <div id="system-info-detail" class="info-grid"><div class="skeleton-loader"></div></div>
+                </div>
+                <div class="grid-2col">
+                    <div class="card">
+                        <h3>Two-Factor Authentication</h3>
+                        <div id="tfa-status">Loading...</div>
+                        <div id="tfa-setup" class="hidden" style="margin-top:12px">
+                            <p class="text-muted" style="font-size:12px;margin-bottom:8px">Scan this QR with Google Authenticator, Authy, or any TOTP app:</p>
+                            <div id="tfa-qr" style="text-align:center;margin:8px 0"></div>
+                            <p class="text-muted" style="font-size:11px;font-family:var(--mono);word-break:break-all">Secret: <span id="tfa-secret"></span></p>
+                            <form id="tfa-verify-form" class="settings-form" style="margin-top:8px">
+                                <input type="text" id="tfa-code" placeholder="Enter 6-digit code" maxlength="6" class="input-text">
+                                <button type="submit" class="btn-primary">Verify &amp; Enable</button>
+                            </form>
+                        </div>
+                    </div>
+                    <div class="card">
+                        <h3>User Management</h3>
+                        <form id="add-user-form" class="settings-form" style="margin-bottom:12px">
+                            <div class="input-group">
+                                <label>New Username</label>
+                                <input type="text" id="new-username" required class="input-text">
+                            </div>
+                            <div class="input-group">
+                                <label>Password</label>
+                                <input type="password" id="new-user-password" minlength="6" required class="input-text">
+                            </div>
+                            <button type="submit" class="btn-primary">Add User</button>
+                        </form>
+                        <div id="users-list"></div>
+                    </div>
+                </div>
+                <div class="card">
+                    <h3>API Tokens</h3>
+                    <p class="text-muted" style="font-size:12px;margin-bottom:10px">Create tokens for scripts & integrations. Use <code>Authorization: Bearer &lt;token&gt;</code> on any /api/ endpoint.</p>
+                    <form id="token-create-form" class="settings-form" style="display:flex;gap:8px;align-items:flex-end;margin-bottom:12px">
+                        <div class="input-group" style="flex:2"><label>Name</label><input type="text" id="token-name" required class="input-text" placeholder="deploy-script"></div>
+                        <div class="input-group" style="flex:1"><label>Scope</label>
+                            <select id="token-scope" class="input-select">
+                                <option value="read">Read-only</option>
+                                <option value="full">Full access</option>
+                            </select>
+                        </div>
+                        <div class="input-group" style="flex:1"><label>Expires (days)</label><input type="number" id="token-days" value="365" class="input-text" min="1" max="3650"></div>
+                        <button type="submit" class="btn-primary">Create</button>
+                    </form>
+                    <div id="tokens-list"></div>
+                </div>
+                <div class="grid-2col">
+                    <div class="card">
+                        <h3>Push Notifications</h3>
+                        <p class="text-muted" style="font-size:12px;margin-bottom:8px">Receive alert notifications on this device, even when the tab is closed.</p>
+                        <div id="push-status" style="margin-bottom:10px">Checking browser support...</div>
+                        <div style="display:flex;gap:8px;flex-wrap:wrap">
+                            <button id="push-subscribe-btn" class="btn-primary hidden" onclick="VPSMon.pushSubscribe()">Enable Push</button>
+                            <button id="push-unsubscribe-btn" class="btn-secondary hidden" onclick="VPSMon.pushUnsubscribe()">Disable Push</button>
+                            <button id="push-test-btn" class="btn-secondary hidden" onclick="VPSMon.pushTest()">Send Test</button>
+                        </div>
+                    </div>
+                    <div class="card">
+                        <h3>Install App</h3>
+                        <p class="text-muted" style="font-size:12px;margin-bottom:8px">Install VPSMon as a standalone app on your desktop or phone for faster access and offline support.</p>
+                        <button id="install-app-btn" class="btn-primary" style="display:none" onclick="VPSMon.installApp()">Install VPSMon</button>
+                        <p id="install-hint" class="text-muted" style="font-size:11px;margin-top:8px">On iOS: Safari → Share → Add to Home Screen. On Android/Desktop Chrome: click the install icon in the address bar.</p>
+                    </div>
+                </div>
+                <div class="card">
+                    <h3>About VPSMon</h3>
+                    <div class="info-grid">
+                        <div class="info-row"><span class="info-key">Version</span><span class="info-val">4.1.0</span></div>
+                        <div class="info-row"><span class="info-key">Storage</span><span class="info-val">SQLite (WAL mode, 4-tier downsampling)</span></div>
+                        <div class="info-row"><span class="info-key">Retention</span><span class="info-val">Raw: 24h | 1min: 7d | 5min: 30d | 1hr: 90d+</span></div>
+                    </div>
+                </div>
+                <div class="card">
+                    <h3>Audit Log</h3>
+                    <div id="audit-list"><div class="skeleton-loader"></div></div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- Add Server Modal -->
+    <div id="add-server-modal" class="modal hidden">
+        <div class="modal-content" style="min-width:480px">
+            <div class="modal-header">
+                <h3>Add Server</h3>
+                <button class="modal-close" onclick="VPSMon.closeModal('add-server-modal')">&times;</button>
+            </div>
+            <form id="add-server-form" class="settings-form">
+                <div class="input-group"><label>Name</label><input type="text" id="srv-name" required class="input-text" placeholder="production-web-01"></div>
+                <div class="input-group"><label>Hostname / IP</label><input type="text" id="srv-host" required class="input-text" placeholder="1.2.3.4 or example.com"></div>
+                <div style="display:grid;grid-template-columns:2fr 1fr;gap:8px">
+                    <div class="input-group"><label>SSH User</label><input type="text" id="srv-user" value="root" class="input-text"></div>
+                    <div class="input-group"><label>Port</label><input type="number" id="srv-port" value="22" class="input-text"></div>
+                </div>
+                <div class="input-group"><label>SSH Key Path (recommended)</label><input type="text" id="srv-key" class="input-text" placeholder="/root/.ssh/id_ed25519"></div>
+                <div class="input-group"><label>SSH Password (optional, if no key)</label><input type="password" id="srv-pass" class="input-text"></div>
+                <div class="input-group"><label>Tags (comma-separated)</label><input type="text" id="srv-tags" class="input-text" placeholder="production,web,eu"></div>
+                <div style="display:flex;gap:8px;margin-top:8px">
+                    <button type="submit" class="btn-primary">Add Server</button>
+                    <button type="button" class="btn-small" onclick="VPSMon.closeModal('add-server-modal')">Cancel</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Add Notification Modal -->
+    <div id="add-notif-modal" class="modal hidden">
+        <div class="modal-content" style="min-width:480px">
+            <div class="modal-header">
+                <h3>Add Notification Channel</h3>
+                <button class="modal-close" onclick="VPSMon.closeModal('add-notif-modal')">&times;</button>
+            </div>
+            <form id="add-notif-form" class="settings-form">
+                <div class="input-group"><label>Name</label><input type="text" id="notif-name" required class="input-text" placeholder="team-slack"></div>
+                <div class="input-group">
+                    <label>Type</label>
+                    <select id="notif-kind" class="input-select">
+                        <option value="slack">Slack</option>
+                        <option value="discord">Discord</option>
+                        <option value="telegram">Telegram</option>
+                        <option value="webhook">Generic Webhook</option>
+                        <option value="email">Email (SMTP)</option>
+                    </select>
+                </div>
+                <div id="notif-config-fields"></div>
+                <div class="input-group">
+                    <label>Minimum Severity</label>
+                    <select id="notif-severity" class="input-select">
+                        <option value="info">Info (all alerts)</option>
+                        <option value="warning" selected>Warning (default)</option>
+                        <option value="critical">Critical only</option>
+                    </select>
+                </div>
+                <div style="display:flex;gap:8px;margin-top:8px">
+                    <button type="submit" class="btn-primary">Add Channel</button>
+                    <button type="button" class="btn-small" onclick="VPSMon.closeModal('add-notif-modal')">Cancel</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Add Uptime Check Modal -->
+    <div id="add-uptime-modal" class="modal hidden">
+        <div class="modal-content" style="min-width:480px">
+            <div class="modal-header">
+                <h3>Add Uptime Check</h3>
+                <button class="modal-close" onclick="VPSMon.closeModal('add-uptime-modal')">&times;</button>
+            </div>
+            <form id="add-uptime-form" class="settings-form">
+                <div class="input-group"><label>Name</label><input type="text" id="up-name" required class="input-text" placeholder="API Production"></div>
+                <div class="input-group"><label>URL</label><input type="url" id="up-url" required class="input-text" placeholder="https://api.example.com/health"></div>
+                <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px">
+                    <div class="input-group"><label>Method</label>
+                        <select id="up-method" class="input-select"><option>GET</option><option>HEAD</option><option>POST</option></select>
+                    </div>
+                    <div class="input-group"><label>Expect Status</label><input type="number" id="up-status" value="200" class="input-text"></div>
+                    <div class="input-group"><label>Interval (s)</label><input type="number" id="up-interval" value="60" min="15" class="input-text"></div>
+                </div>
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+                    <div class="input-group"><label>Timeout (s)</label><input type="number" id="up-timeout" value="10" class="input-text"></div>
+                    <div class="input-group"><label>Expect Body Contains</label><input type="text" id="up-body" class="input-text" placeholder="(optional)"></div>
+                </div>
+                <div class="input-group"><label>Tags</label><input type="text" id="up-tags" class="input-text" placeholder="production, api"></div>
+                <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:8px">
+                    <button type="button" class="btn-small" onclick="VPSMon.closeModal('add-uptime-modal')">Cancel</button>
+                    <button type="submit" class="btn-primary">Add Check</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Token created modal (shows raw token once) -->
+    <div id="token-shown-modal" class="modal hidden">
+        <div class="modal-content" style="min-width:460px">
+            <div class="modal-header">
+                <h3>API Token Created</h3>
+                <button class="modal-close" onclick="VPSMon.closeModal('token-shown-modal')">&times;</button>
+            </div>
+            <div style="padding:8px 0">
+                <p style="color:#f59e0b;font-size:13px;margin-bottom:10px">⚠️ Copy this token now — it won't be shown again.</p>
+                <div style="background:#14161d;padding:12px;border-radius:6px;font-family:ui-monospace,monospace;font-size:12px;word-break:break-all" id="token-shown-value"></div>
+                <button class="btn-primary" style="margin-top:10px" onclick="VPSMon.copyToken()">Copy to Clipboard</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Runbook Editor Modal -->
+    <div id="runbook-edit-modal" class="modal hidden">
+        <div class="modal-content" style="min-width:640px;max-width:90vw">
+            <div class="modal-header">
+                <h3 id="rb-edit-title">New Runbook</h3>
+                <button class="modal-close" onclick="VPSMon.closeModal('runbook-edit-modal')">&times;</button>
+            </div>
+            <form id="runbook-edit-form" class="settings-form">
+                <input type="hidden" id="rb-id">
+                <div style="display:grid;grid-template-columns:2fr 1fr;gap:8px">
+                    <div class="input-group"><label>Name</label><input type="text" id="rb-name" required class="input-text" placeholder="Clear build artifacts"></div>
+                    <div class="input-group"><label>Category</label><input type="text" id="rb-category" class="input-text" placeholder="Housekeeping"></div>
+                </div>
+                <div class="input-group"><label>Description</label><input type="text" id="rb-description" class="input-text"></div>
+                <div class="input-group"><label>Script</label>
+                    <textarea id="rb-script" rows="10" class="input-text" required style="font-family:ui-monospace,monospace;font-size:12px" placeholder="#!/bin/bash&#10;echo 'Hello'"></textarea>
+                </div>
+                <div class="setting-row"><span>⚠️ Mark as dangerous (requires confirmation)</span><input type="checkbox" id="rb-dangerous"></div>
+                <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:8px">
+                    <button type="button" class="btn-small" onclick="VPSMon.closeModal('runbook-edit-modal')">Cancel</button>
+                    <button type="submit" class="btn-primary">Save Runbook</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Runbook Execute Modal -->
+    <div id="runbook-exec-modal" class="modal hidden">
+        <div class="modal-content" style="min-width:620px;max-width:90vw">
+            <div class="modal-header">
+                <h3 id="rb-exec-title">Execute Runbook</h3>
+                <button class="modal-close" onclick="VPSMon.closeModal('runbook-exec-modal')">&times;</button>
+            </div>
+            <div id="rb-exec-body" style="padding:8px 0">
+                <p id="rb-exec-desc" class="text-muted" style="font-size:13px;margin-bottom:8px"></p>
+                <div class="input-group"><label>Target</label>
+                    <select id="rb-exec-target" class="input-select">
+                        <option value="local">📦 Local (this monitoring server)</option>
+                        <option value="all">🌐 All enabled remote servers</option>
+                        <!-- server options injected -->
+                    </select>
+                </div>
+                <div id="rb-exec-danger-warn" class="hidden" style="background:rgba(239,68,68,0.1);border:1px solid rgba(239,68,68,0.3);padding:10px;border-radius:6px;margin:8px 0;font-size:12px;color:#fca5a5">
+                    ⚠️ This runbook is marked dangerous. Consider running it first with <b>Dry Run</b>.
+                </div>
+                <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:10px">
+                    <button type="button" class="btn-small" onclick="VPSMon.closeModal('runbook-exec-modal')">Cancel</button>
+                    <button type="button" class="btn-secondary" onclick="VPSMon.runRunbook(true)">Dry Run</button>
+                    <button type="button" class="btn-primary" onclick="VPSMon.runRunbook(false)">Execute</button>
+                </div>
+                <div id="rb-exec-output" class="hidden" style="margin-top:12px"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Custom Metric Modal -->
+    <div id="custom-metric-modal" class="modal hidden">
+        <div class="modal-content" style="min-width:540px">
+            <div class="modal-header">
+                <h3>Add Custom Metric</h3>
+                <button class="modal-close" onclick="VPSMon.closeModal('custom-metric-modal')">&times;</button>
+            </div>
+            <form id="custom-metric-form" class="settings-form">
+                <div class="input-group"><label>Name (snake_case)</label><input type="text" id="cm-name" required class="input-text" placeholder="active_users_count"></div>
+                <div class="input-group"><label>Display Label</label><input type="text" id="cm-label" class="input-text" placeholder="Active Users"></div>
+                <div style="display:grid;grid-template-columns:2fr 1fr 1fr;gap:8px">
+                    <div class="input-group"><label>Target</label>
+                        <select id="cm-target" class="input-select">
+                            <option value="local">Local</option>
+                        </select>
+                    </div>
+                    <div class="input-group"><label>Interval (s)</label><input type="number" id="cm-interval" value="300" min="30" class="input-text"></div>
+                    <div class="input-group"><label>Unit</label><input type="text" id="cm-unit" placeholder="req/s" class="input-text"></div>
+                </div>
+                <div class="input-group"><label>Script (last stdout line must be a number)</label>
+                    <textarea id="cm-script" rows="6" class="input-text" required style="font-family:ui-monospace,monospace;font-size:12px" placeholder="# e.g. count logged-in users&#10;who | wc -l"></textarea>
+                </div>
+                <div style="display:flex;gap:8px;justify-content:flex-end">
+                    <button type="button" class="btn-small" onclick="VPSMon.closeModal('custom-metric-modal')">Cancel</button>
+                    <button type="submit" class="btn-primary">Add Metric</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Keyboard Shortcuts Modal -->
+    <div id="shortcuts-modal" class="modal hidden">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Keyboard Shortcuts</h3>
+                <button class="modal-close" onclick="VPSMon.closeModal()">&times;</button>
+            </div>
+            <div class="shortcuts-grid">
+                <div><kbd>⌘K</kbd> / <kbd>Ctrl K</kbd> Command palette</div>
+                <div><kbd>1</kbd>-<kbd>8</kbd> Navigate pages</div>
+                <div><kbd>?</kbd> Show shortcuts</div>
+                <div><kbd>Esc</kbd> Close modal/panel</div>
+                <div><kbd>s</kbd> Servers</div>
+                <div><kbd>a</kbd> Audit</div>
+                <div><kbd>g</kbd> Settings</div>
+                <div><kbd>n</kbd> Notifications</div>
+            </div>
+        </div>
+    </div>
+
+    <script src="/static/vendor/xterm/xterm.min.js"></script>
+    <script src="/static/vendor/xterm/addon-fit.min.js"></script>
+    <script src="/static/js/chart-advanced.js"></script>
+    <script src="/static/js/app.js"></script>
+    <script src="/static/js/push.js"></script>
+    <script src="/static/js/palette.js"></script>
+    <script src="/static/js/wave8.js"></script>
+    <script src="/static/js/wave9.js"></script>
+    <script src="/static/js/terminal.js"></script>
+    <script src="/static/js/wave11.js"></script>
+    <script src="/static/js/wave12.js"></script>
+</body>
+</html>

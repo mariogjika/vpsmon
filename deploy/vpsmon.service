@@ -1,0 +1,27 @@
+[Unit]
+Description=VPSMon Server Monitoring
+After=network.target docker.service
+Wants=docker.service
+
+[Service]
+Type=simple
+User=root
+Group=root
+WorkingDirectory=/opt/vpsmon
+ExecStart=/opt/vpsmon/venv/bin/python -m vpsmon.app
+Restart=always
+RestartSec=5
+Environment=VPSMON_DATA_DIR=/var/lib/vpsmon
+Environment=VPSMON_PORT=9090
+
+# Resource limits
+MemoryMax=256M
+CPUQuota=25%
+
+# Security
+NoNewPrivileges=false
+ProtectSystem=false
+ProtectHome=true
+
+[Install]
+WantedBy=multi-user.target

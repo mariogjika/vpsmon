@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Status — VPSMon</title>
+<link rel="icon" href="/static/icon.svg">
+<style>
+:root {
+  --bg:#0f1014; --panel:#181a21; --border:#2a2d3a; --text:#e2e8f0;
+  --muted:#64748b; --good:#22c55e; --warn:#f59e0b; --bad:#ef4444;
+  --accent:#6366f1;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;line-height:1.5}
+.wrap{max-width:900px;margin:0 auto;padding:32px 20px 80px}
+header{display:flex;align-items:center;gap:12px;margin-bottom:32px}
+header img{width:36px;height:36px}
+h1{font-size:24px;margin:0}
+.tag{font-size:12px;color:var(--muted);margin-top:4px}
+.hero{background:var(--panel);border:1px solid var(--border);border-radius:12px;padding:28px;margin-bottom:20px;text-align:center}
+.hero-label{font-size:13px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:8px}
+.hero-status{font-size:28px;font-weight:700}
+.hero-status.good{color:var(--good)}
+.hero-status.warn{color:var(--warn)}
+.hero-status.bad{color:var(--bad)}
+.hero-dot{display:inline-block;width:14px;height:14px;border-radius:50%;margin-right:10px;vertical-align:middle}
+.hero-dot.good{background:var(--good);box-shadow:0 0 12px var(--good)}
+.hero-dot.warn{background:var(--warn);box-shadow:0 0 12px var(--warn)}
+.hero-dot.bad{background:var(--bad);box-shadow:0 0 12px var(--bad)}
+.section{background:var(--panel);border:1px solid var(--border);border-radius:12px;padding:20px;margin-bottom:16px}
+.section h2{font-size:16px;margin:0 0 14px;color:var(--text)}
+.metrics{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:12px}
+.metric{background:#14161d;padding:14px;border-radius:8px;text-align:center}
+.metric-val{font-size:24px;font-weight:700}
+.metric-label{font-size:11px;color:var(--muted);text-transform:uppercase;margin-top:4px;letter-spacing:0.5px}
+.check{display:flex;align-items:center;justify-content:space-between;padding:12px 0;border-bottom:1px solid var(--border)}
+.check:last-child{border-bottom:none}
+.check-name{font-weight:500;flex:1}
+.check-url{font-size:11px;color:var(--muted);font-family:ui-monospace,monospace}
+.check-meta{display:flex;align-items:center;gap:12px;font-size:12px}
+.dot{width:10px;height:10px;border-radius:50%;display:inline-block}
+.dot.good{background:var(--good)}
+.dot.bad{background:var(--bad)}
+.sla-bar{display:inline-block;min-width:60px;text-align:right;font-family:ui-monospace,monospace}
+.sla-good{color:var(--good)}
+.sla-warn{color:var(--warn)}
+.sla-bad{color:var(--bad)}
+.incident{padding:10px 0;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;gap:12px}
+.incident:last-child{border-bottom:none}
+.badge{display:inline-block;padding:2px 8px;border-radius:4px;font-size:10px;text-transform:uppercase;font-weight:600}
+.badge-critical{background:rgba(239,68,68,0.2);color:var(--bad)}
+.badge-warning{background:rgba(245,158,11,0.2);color:var(--warn)}
+.badge-info{background:rgba(99,102,241,0.2);color:var(--accent)}
+.empty{text-align:center;color:var(--muted);padding:20px;font-size:13px}
+footer{text-align:center;color:var(--muted);font-size:11px;margin-top:30px}
+footer a{color:var(--muted)}
+.refreshing{animation:pulse 1.2s infinite}
+@keyframes pulse{50%{opacity:0.5}}
+@media (max-width:640px){
+  .wrap{padding:20px 14px 60px}
+  h1{font-size:20px}
+  .hero{padding:20px}
+  .hero-status{font-size:22px}
+  .check{flex-direction:column;align-items:flex-start;gap:6px}
+}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <img src="/static/icon.svg" alt="">
+    <div>
+      <h1>Service Status</h1>
+      <div class="tag" id="updated-at">Loading…</div>
+    </div>
+  </header>
+
+  <div class="hero" id="hero">
+    <div class="hero-label">Overall</div>
+    <div class="hero-status"><span class="hero-dot"></span><span id="hero-text">Checking…</span></div>
+  </div>
+
+  <div class="section">
+    <h2>Fleet Overview</h2>
+    <div class="metrics" id="metrics"></div>
+  </div>
+
+  <div class="section">
+    <h2>Uptime Checks</h2>
+    <div id="checks"><div class="empty">No checks configured.</div></div>
+  </div>
+
+  <div class="section">
+    <h2>Active Incidents</h2>
+    <div id="incidents"><div class="empty">No active incidents. ✓</div></div>
+  </div>
+
+  <footer>Powered by VPSMon • <a href="/">Admin</a></footer>
+</div>
+
+<script>
+async function load() {
+  try {
+    const r = await fetch('/api/status');
+    const d = await r.json();
+    renderHero(d);
+    renderMetrics(d);
+    renderChecks(d.uptime);
+    renderIncidents(d.incidents);
+    document.getElementById('updated-at').textContent = 'Updated ' + new Date(d.updated_at * 1000).toLocaleString();
+  } catch (e) {
+    document.getElementById('hero-text').textContent = 'Status API unreachable';
+    document.getElementById('updated-at').textContent = 'Failed to load';
+  }
+}
+
+function renderHero(d) {
+  const up = d.uptime?.summary || {};
+  const hasDown = (up.down || 0) > 0 || (d.incidents?.open?.length || 0) > 0;
+  const hasOffline = (d.servers?.offline || 0) > 0;
+  const el = document.getElementById('hero');
+  const dot = el.querySelector('.hero-dot');
+  const text = el.querySelector('#hero-text');
+  el.querySelector('.hero-status').className = 'hero-status';
+  dot.className = 'hero-dot';
+  if (hasDown) {
+    el.querySelector('.hero-status').classList.add('bad');
+    dot.classList.add('bad');
+    text.textContent = 'Service Degraded';
+  } else if (hasOffline) {
+    el.querySelector('.hero-status').classList.add('warn');
+    dot.classList.add('warn');
+    text.textContent = 'Partial Outage';
+  } else {
+    el.querySelector('.hero-status').classList.add('good');
+    dot.classList.add('good');
+    text.textContent = 'All Systems Operational';
+  }
+}
+
+function renderMetrics(d) {
+  const up = d.uptime?.summary || {};
+  const srv = d.servers || {};
+  const el = document.getElementById('metrics');
+  el.innerHTML = `
+    <div class="metric"><div class="metric-val">${srv.total ?? '—'}</div><div class="metric-label">Servers</div></div>
+    <div class="metric"><div class="metric-val" style="color:var(--good)">${srv.online ?? '—'}</div><div class="metric-label">Online</div></div>
+    <div class="metric"><div class="metric-val" style="color:${(srv.offline||0)>0?'var(--bad)':'var(--muted)'}">${srv.offline ?? '—'}</div><div class="metric-label">Offline</div></div>
+    <div class="metric"><div class="metric-val">${up.total ?? 0}</div><div class="metric-label">Uptime Checks</div></div>
+    <div class="metric"><div class="metric-val" style="color:${(up.sla_24h||100)>=99?'var(--good)':(up.sla_24h||100)>=95?'var(--warn)':'var(--bad)'}">${up.sla_24h != null ? up.sla_24h + '%' : '—'}</div><div class="metric-label">24h SLA</div></div>
+    <div class="metric"><div class="metric-val" style="color:${(d.incidents?.open?.length||0)>0?'var(--bad)':'var(--good)'}">${d.incidents?.open?.length ?? 0}</div><div class="metric-label">Open Incidents</div></div>
+  `;
+}
+
+function renderChecks(u) {
+  const el = document.getElementById('checks');
+  const checks = u?.checks || [];
+  if (!checks.length) { el.innerHTML = '<div class="empty">No uptime checks configured yet.</div>'; return; }
+  el.innerHTML = checks.map(c => {
+    const statusClass = c.up ? 'good' : 'bad';
+    const statusText = c.up ? 'Operational' : 'Down';
+    const slaClass = c.sla_24h == null ? '' : c.sla_24h >= 99 ? 'sla-good' : c.sla_24h >= 95 ? 'sla-warn' : 'sla-bad';
+    const slaText = c.sla_24h == null ? '—' : c.sla_24h + '%';
+    const latency = c.latency_ms != null ? c.latency_ms + 'ms' : '';
+    return `
+      <div class="check">
+        <div>
+          <div class="check-name"><span class="dot ${statusClass}"></span> ${escapeHtml(c.name)}</div>
+          <div class="check-url">${escapeHtml(c.url)}</div>
+        </div>
+        <div class="check-meta">
+          <span style="color:var(--muted)">${latency}</span>
+          <span class="sla-bar ${slaClass}">${slaText}</span>
+          <span style="color:var(--${statusClass});min-width:80px;text-align:right">${statusText}</span>
+        </div>
+      </div>`;
+  }).join('');
+}
+
+function renderIncidents(inc) {
+  const el = document.getElementById('incidents');
+  const list = inc?.open || [];
+  if (!list.length) { el.innerHTML = '<div class="empty">No active incidents. ✓</div>'; return; }
+  el.innerHTML = list.map(i => `
+    <div class="incident">
+      <div>
+        <span class="badge badge-${i.severity}">${i.severity}</span>
+        ${escapeHtml(i.title)}
+      </div>
+      <div style="color:var(--muted);font-size:11px;white-space:nowrap">${timeAgo(i.started_at)}</div>
+    </div>
+  `).join('');
+}
+
+function timeAgo(ts) {
+  const s = Math.floor(Date.now() / 1000 - ts);
+  if (s < 60) return s + 's ago';
+  if (s < 3600) return Math.floor(s / 60) + 'm ago';
+  if (s < 86400) return Math.floor(s / 3600) + 'h ago';
+  return Math.floor(s / 86400) + 'd ago';
+}
+function escapeHtml(s) { return String(s || '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+
+load();
+setInterval(load, 30000);
+</script>
+</body>
+</html>
