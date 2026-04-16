@@ -77,9 +77,10 @@ async def auth_middleware(request: web.Request, handler):
     path = request.path
     if path in ("/api/auth/login", "/api/auth/check", "/api/health",
                 "/sw.js", "/manifest.json", "/status", "/api/status",
-                "/metrics") or \
+                "/metrics", "/api/agent/register") or \
        path.startswith("/static/") or path == "/" or path == "/favicon.ico" or \
-       path.startswith("/ws/"):
+       path.startswith("/ws/") or \
+       path.startswith("/api/agent/"):
         return await handler(request)
 
     # Check session cookie

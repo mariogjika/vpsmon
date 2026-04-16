@@ -5,10 +5,10 @@ import time
 
 from aiohttp import web
 
-from .. import (alerts, annotations, audit, auth, config, databases, docker_updates,
-                 forecast, incidents, intel, notifications, prometheus, push,
-                 reports, runbooks, security_hardening, servers, terminal,
-                 tokens, totp, uptime, webanalytics)
+from .. import (agents, alerts, annotations, audit, auth, config, databases,
+                 docker_updates, forecast, incidents, intel, notifications,
+                 prometheus, push, reports, runbooks, security_hardening,
+                 servers, terminal, tokens, totp, uptime, webanalytics)
 from ..collectors import (
     system, docker_mon, processes, network, security, logs,
     temperature, smart, tls, services, crons, fail2ban, firewall,
@@ -191,6 +191,21 @@ def setup_routes(app: web.Application):
     # Security audit
     app.router.add_get("/api/security-audit", handle_security_audit)
     app.router.add_post("/api/auth/force-password-change", handle_force_password_change)
+
+    # Agent management
+    app.router.add_post("/api/agent/register", handle_agent_register)
+    app.router.add_post("/api/agent/heartbeat", handle_agent_heartbeat)
+    app.router.add_post("/api/agent/metrics", handle_agent_metrics)
+    app.router.add_post("/api/agent/logs", handle_agent_logs)
+    app.router.add_get("/api/agents", handle_agents_list)
+    app.router.add_get("/api/agents/{agent_id}", handle_agent_detail)
+    app.router.add_delete("/api/agents/{agent_id}", handle_agent_delete)
+    app.router.add_get("/api/agents/{agent_id}/metrics", handle_agent_metrics_history)
+    app.router.add_get("/api/agent-logs", handle_agent_logs_search)
+    app.router.add_get("/api/agent-logs/stats", handle_agent_logs_stats)
+    app.router.add_get("/api/enrollment-tokens", handle_enrollment_tokens_list)
+    app.router.add_post("/api/enrollment-tokens", handle_enrollment_token_create)
+    app.router.add_delete("/api/enrollment-tokens/{id}", handle_enrollment_token_revoke)
 
 
 # --- Auth ---
@@ -1359,4 +1374,128 @@ async def handle_force_password_change(request: web.Request):
     await db.execute("UPDATE users SET password_hash = ? WHERE username = ?",
                      (hashed.decode("utf-8"), user))
     await audit.log_event(user, "password.changed", "", request.remote or "")
+    return web.json_response({"ok": True})
+
+
+# --- Agent API ---
+
+async def handle_agent_register(request: web.Request):
+    """Agent enrollment — validates enrollment token, registers agent."""
+    data = await request.json()
+    token = data.pop("token", "")
+    if not token:
+        return web.json_response({"error": "enrollment token required"}, status=400)
+    result = await agents.register_agent(token, data)
+    if not result:
+        return web.json_response({"error": "invalid or expired enrollment token"}, status=401)
+    return web.json_response(result)
+
+
+async def _validate_agent_request(request) -> dict:
+    """Validate agent auth token from request header."""
+    auth_header = request.headers.get("Authorization", "")
+    if auth_header.startswith("Bearer "):
+        token = auth_header[7:]
+        agent = await agents.validate_agent_token(token)
+        if agent:
+            return agent
+    return None
+
+
+async def handle_agent_heartbeat(request: web.Request):
+    agent = await _validate_agent_request(request)
+    if not agent:
+        return web.json_response({"error": "unauthorized"}, status=401)
+    data = await request.json()
+    return web.json_response(await agents.heartbeat(agent["agent_id"], data))
+
+
+async def handle_agent_metrics(request: web.Request):
+    agent = await _validate_agent_request(request)
+    if not agent:
+        return web.json_response({"error": "unauthorized"}, status=401)
+    data = await request.json()
+    return web.json_response(await agents.ingest_metrics(
+        data.get("agent_id", agent["agent_id"]),
+        data.get("metrics", []),
+    ))
+
+
+async def handle_agent_logs(request: web.Request):
+    agent = await _validate_agent_request(request)
+    if not agent:
+        return web.json_response({"error": "unauthorized"}, status=401)
+    data = await request.json()
+    return web.json_response(await agents.ingest_logs(
+        data.get("agent_id", agent["agent_id"]),
+        data.get("logs", []),
+    ))
+
+
+async def handle_agents_list(request: web.Request):
+    status = request.query.get("status")
+    return web.json_response({"agents": await agents.list_agents(status)})
+
+
+async def handle_agent_detail(request: web.Request):
+    agent_id = request.match_info["agent_id"]
+    agent = await agents.get_agent(agent_id)
+    if not agent:
+        return web.json_response({"error": "not found"}, status=404)
+    return web.json_response(agent)
+
+
+async def handle_agent_delete(request: web.Request):
+    agent_id = request.match_info["agent_id"]
+    await agents.delete_agent(agent_id)
+    user = request.get("user", {}).get("username", "?")
+    await audit.log_event(user, "agent.delete", agent_id, request.remote or "")
+    return web.json_response({"ok": True})
+
+
+async def handle_agent_metrics_history(request: web.Request):
+    agent_id = request.match_info["agent_id"]
+    hours = int(request.query.get("hours", 1))
+    return web.json_response({"metrics": await agents.get_agent_metrics(agent_id, hours)})
+
+
+async def handle_agent_logs_search(request: web.Request):
+    return web.json_response({"logs": await agents.search_logs(
+        agent_id=request.query.get("agent_id"),
+        severity=request.query.get("severity"),
+        service=request.query.get("service"),
+        query=request.query.get("q"),
+        hours=int(request.query.get("hours", 24)),
+        limit=int(request.query.get("limit", 500)),
+    )})
+
+
+async def handle_agent_logs_stats(request: web.Request):
+    hours = int(request.query.get("hours", 24))
+    return web.json_response(await agents.log_stats(hours))
+
+
+async def handle_enrollment_tokens_list(request: web.Request):
+    return web.json_response({"tokens": await agents.list_enrollment_tokens()})
+
+
+async def handle_enrollment_token_create(request: web.Request):
+    data = await request.json()
+    user = request.get("user", {}).get("username", "?")
+    result = await agents.create_enrollment_token(
+        name=data.get("name", ""),
+        created_by=user,
+        expires_hours=int(data.get("expires_hours", 24)),
+        max_uses=int(data.get("max_uses", 0)),
+        tags=data.get("tags", ""),
+    )
+    await audit.log_event(user, "enrollment.create", data.get("name", ""), request.remote or "")
+    return web.json_response(result)
+
+
+async def handle_enrollment_token_revoke(request: web.Request):
+    tid = int(request.match_info["id"])
+    await agents.revoke_enrollment_token(tid)
+    user = request.get("user", {}).get("username", "?")
+    await audit.log_event(user, "enrollment.revoke", f"token:{tid}", request.remote or "")
     return web.json_response({"ok": True})

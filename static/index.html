@@ -137,6 +137,15 @@
                         <span class="nav-icon">&#9654;</span><span class="nav-text">Runbooks</span></a>
                 </div>
 
+                <!-- Agents -->
+                <div class="nav-section">
+                    <span class="nav-section-label">Agents</span>
+                    <a href="#agents" class="nav-link" data-page="agents">
+                        <span class="nav-icon">&#9881;</span><span class="nav-text">Agents</span></a>
+                    <a href="#log-explorer" class="nav-link" data-page="log-explorer">
+                        <span class="nav-icon">&#9998;</span><span class="nav-text">Log Explorer</span></a>
+                </div>
+
                 <!-- Configure -->
                 <div class="nav-section">
                     <span class="nav-section-label">Configure</span>
@@ -688,6 +697,66 @@
                 </div>
             </div>
 
+            <!-- Agents Page -->
+            <div id="page-agents" class="page">
+                <div class="page-header">
+                    <h1>Agents</h1>
+                    <div class="page-actions">
+                        <button class="btn-primary" onclick="VPSMon.createEnrollToken()">+ Enrollment Token</button>
+                    </div>
+                </div>
+                <div class="card">
+                    <h3>Quick Install</h3>
+                    <p style="font-size:13px;color:var(--text-secondary);margin-bottom:12px">Install the VPSMon agent on any Linux or Windows server. Create an enrollment token first, then run the command on the target machine.</p>
+                    <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
+                        <div>
+                            <div style="font-weight:700;font-size:12px;margin-bottom:6px">Linux (Ubuntu/Debian/Rocky/Alma)</div>
+                            <pre class="run-output" style="font-size:11px;max-height:80px">curl -sSL https://monitoring.solverix.io/static/agent/install-agent.sh | sudo bash -s -- \
+  --token YOUR_TOKEN \
+  --server https://monitoring.solverix.io \
+  --name my-server-01</pre>
+                        </div>
+                        <div>
+                            <div style="font-weight:700;font-size:12px;margin-bottom:6px">Windows (PowerShell as Admin)</div>
+                            <pre class="run-output" style="font-size:11px;max-height:80px">Invoke-WebRequest -Uri "https://monitoring.solverix.io/static/agent/vpsmon-agent.py" -OutFile "C:\vpsmon-agent.py"
+python C:\vpsmon-agent.py --enroll --server https://monitoring.solverix.io --enroll-token YOUR_TOKEN --name WIN-SRV-01</pre>
+                        </div>
+                    </div>
+                </div>
+                <div class="card">
+                    <h3>Enrollment Tokens</h3>
+                    <div id="enrollment-tokens-list"><div class="skeleton-loader"></div></div>
+                </div>
+                <div class="card">
+                    <h3>Connected Agents</h3>
+                    <div id="agents-list"><div class="skeleton-loader"></div></div>
+                </div>
+            </div>
+
+            <!-- Log Explorer Page -->
+            <div id="page-log-explorer" class="page">
+                <div class="page-header">
+                    <h1>Log Explorer</h1>
+                    <div class="page-actions">
+                        <select id="log-agent-filter" class="input-select" style="width:180px;display:inline-block"><option value="">All agents</option></select>
+                        <select id="log-severity-filter" class="input-select" style="width:120px;display:inline-block">
+                            <option value="">All levels</option>
+                            <option value="emergency">Emergency</option>
+                            <option value="critical">Critical</option>
+                            <option value="error">Error</option>
+                            <option value="warning">Warning</option>
+                            <option value="info">Info</option>
+                        </select>
+                        <input type="text" id="log-search-input" class="input-text" style="width:220px;display:inline-block" placeholder="Search logs...">
+                        <button class="btn-primary" onclick="VPSMon.searchLogs()">Search</button>
+                    </div>
+                </div>
+                <div class="grid-4col" id="log-stats"></div>
+                <div class="card">
+                    <div id="log-explorer-results"><div class="empty-state">Run a search or wait for agents to ship logs.</div></div>
+                </div>
+            </div>
+
             <!-- Security Audit Page -->
             <div id="page-security-audit" class="page">
                 <div class="page-header">
@@ -1056,5 +1125,6 @@
     <script src="/static/js/terminal.js"></script>
     <script src="/static/js/wave11.js"></script>
     <script src="/static/js/wave12.js"></script>
+    <script src="/static/js/agents.js"></script>
 </body>
 </html>
