@@ -5,10 +5,11 @@ import time
 
 from aiohttp import web
 
-from .. import (agents, alerts, annotations, audit, auth, config, databases,
-                 docker_updates, forecast, incidents, intel, notifications,
-                 prometheus, push, reports, runbooks, security_hardening,
-                 servers, terminal, tokens, totp, uptime, webanalytics)
+from .. import (agents, alerts, annotations, audit, auth, branding, config,
+                 databases, docker_updates, forecast, incidents, intel,
+                 log_patterns, notifications, prometheus, push, reports,
+                 runbooks, security_hardening, servers, terminal, tokens,
+                 totp, uptime, webanalytics)
 from ..collectors import (
     system, docker_mon, processes, network, security, logs,
     temperature, smart, tls, services, crons, fail2ban, firewall,
@@ -206,6 +207,14 @@ def setup_routes(app: web.Application):
     app.router.add_get("/api/enrollment-tokens", handle_enrollment_tokens_list)
     app.router.add_post("/api/enrollment-tokens", handle_enrollment_token_create)
     app.router.add_delete("/api/enrollment-tokens/{id}", handle_enrollment_token_revoke)
+
+    # Branding (white-label)
+    app.router.add_get("/api/branding", handle_branding_get)
+    app.router.add_put("/api/branding", handle_branding_update)
+
+    # Log pattern detection
+    app.router.add_get("/api/log-patterns", handle_log_patterns)
+    app.router.add_post("/api/log-patterns/scan", handle_log_patterns_scan)
 
 
 # --- Auth ---
@@ -1499,3 +1508,29 @@ async def handle_enrollment_token_revoke(request: web.Request):
     user = request.get("user", {}).get("username", "?")
     await audit.log_event(user, "enrollment.revoke", f"token:{tid}", request.remote or "")
     return web.json_response({"ok": True})
+
+
+# --- Branding (white-label) ---
+
+async def handle_branding_get(request: web.Request):
+    return web.json_response(await branding.get_branding())
+
+
+async def handle_branding_update(request: web.Request):
+    data = await request.json()
+    await branding.update_branding(data)
+    user = request.get("user", {}).get("username", "?")
+    await audit.log_event(user, "branding.update", "", request.remote or "")
+    return web.json_response({"ok": True})
+
+
+# --- Log pattern detection ---
+
+async def handle_log_patterns(request: web.Request):
+    definitions = await log_patterns.get_pattern_definitions()
+    return web.json_response({"patterns": definitions})
+
+
+async def handle_log_patterns_scan(request: web.Request):
+    results = await log_patterns.scan_patterns(hours=1)
+    return web.json_response({"detected": results})

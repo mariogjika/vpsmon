@@ -6,9 +6,10 @@ from pathlib import Path
 
 from aiohttp import web
 
-from . import (agents, alerts, audit, config, databases, db, auth, docker_updates,
-                 forecast, incidents, intel, notifications, push, runbooks,
-                 servers, tokens, uptime, webanalytics)
+from . import (agents, alerts, audit, branding, config, databases, db, auth,
+                 docker_updates, forecast, incidents, intel, log_patterns,
+                 notifications, push, runbooks, servers, tokens, uptime,
+                 webanalytics)
 from .collectors import (
     system, docker_mon, processes, network, logs, security,
     temperature, smart, tls, services, crons, fail2ban, firewall,
@@ -71,8 +72,9 @@ async def on_startup(app: web.Application):
     await databases.start()
     await webanalytics.start()
 
-    # Start agent management
+    # Start agent management + log pattern detection
     await agents.start()
+    await log_patterns.start()
 
     # Start new collector loops
     _collection_tasks.append(asyncio.create_task(_temperature_loop()))
@@ -112,6 +114,7 @@ async def on_shutdown(app: web.Application):
     await databases.stop()
     await webanalytics.stop()
     await agents.stop()
+    await log_patterns.stop()
     await logs.stop()
     await security.stop()
     await downsample.stop()

@@ -77,10 +77,24 @@ async def auth_middleware(request: web.Request, handler):
     path = request.path
     if path in ("/api/auth/login", "/api/auth/check", "/api/health",
                 "/sw.js", "/manifest.json", "/status", "/api/status",
-                "/metrics", "/api/agent/register") or \
+                "/metrics", "/api/agent/register", "/api/branding") or \
        path.startswith("/static/") or path == "/" or path == "/favicon.ico" or \
-       path.startswith("/ws/") or \
-       path.startswith("/api/agent/"):
+       path.startswith("/ws/"):
+        return await handler(request)
+
+    # Agent endpoints — validate agent token (separate from user auth)
+    if path.startswith("/api/agent/") and path != "/api/agent/register":
+        auth_header = request.headers.get("Authorization", "")
+        if auth_header.startswith("Bearer vpsm_agent_"):
+            try:
+                from . import agents as _agents
+                agent = await _agents.validate_agent_token(auth_header[7:])
+                if agent:
+                    request["agent"] = agent
+                    return await handler(request)
+            except Exception:
+                pass
+        return web.json_response({"error": "invalid agent token"}, status=401)
         return await handler(request)
 
     # Check session cookie
