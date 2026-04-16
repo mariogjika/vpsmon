@@ -1,10 +1,10 @@
 #!/bin/bash
 # VPSMon — One-line installer
-# Usage: curl -sL https://raw.githubusercontent.com/solverix/vpsmon/main/install.sh | bash
+# Usage: curl -sL https://raw.githubusercontent.com/solverix/vpsmon/main/install.sh | sudo bash
 set -e
 
 echo "
-  VPSMon — Server Monitoring v4.0
+  VPSMon — Server Monitoring v5.0
   ================================
 "
 
